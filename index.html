@@ -62,13 +62,16 @@ h2{font-size:17px;font-weight:700;margin:18px 0 10px}h2:first-child{margin-top:0
 .area-head .ac{font-weight:700;color:var(--naranja)}
 .prow{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--fondo)}
 .prow:last-child{border-bottom:none}
-.prow.counted{background:var(--verde-c)}
+.prow.counted{background:var(--rojo-c)}
+.prow.sinstock{background:var(--ambar-c)}
+.btn-sinstock{background:var(--blanco);border:1.5px solid var(--ambar);color:var(--ambar-t);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.btn-sinstock.active{background:var(--ambar);color:white}
 .pname{font-size:14px;flex:1;min-width:0;font-weight:500}
 .pmeta{font-size:11px;color:var(--gris);margin-top:1px}
 .qty{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .qbtn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--borde);background:rgba(255,255,255,0.8);font-size:19px;cursor:pointer;color:inherit;line-height:1}
 .qval{min-width:58px;text-align:center;font-size:16px;font-weight:700;border:none;border-bottom:2px solid var(--borde);background:transparent;padding:2px 4px;color:inherit}
-.qval.filled{border-bottom-color:var(--verde)}
+.qval.filled{border-bottom-color:var(--rojo)}
 .fmt-wrap{display:flex;align-items:center;gap:6px}
 .fmt-select{padding:8px 10px;border-radius:10px;border:1.5px solid var(--borde);font-size:13px;background:rgba(255,255,255,0.7);color:inherit;max-width:120px}
 .fmt-libre{padding:8px 10px;border-radius:10px;border:1.5px solid var(--ambar);font-size:13px;background:var(--ambar-c);color:var(--txt);width:100px;display:none}
@@ -270,7 +273,7 @@ select,input[type=text],input[type=url],input[type=email]{padding:11px 12px;bord
 const FORMATOS_DEFAULT=['Unidad','Caja','Saco','Palet','Bolsa','Botella','Garrafa','Paquete','Rollo','Barril'];
 let sb=null;
 let DB={restaurantes:[],ubicaciones:[],todasUbicaciones:[],todasAreas:[],areas:[],productos:[],todosProductos:[],historico:[],centros:{}};
-let UI={rest:null,ubic:null,area:null,conteo:{},fmt:{},fmtLibre:{},histAbiertos:new Set(),modoReemplazo:false};
+let UI={rest:null,ubic:null,area:null,conteo:{},fmt:{},fmtLibre:{},sinStock:new Set(),histAbiertos:new Set(),modoReemplazo:false};
 
 function $(id){return document.getElementById(id)}
 function toast(msg,err){const t=$('toast');t.textContent=msg;t.classList.toggle('error',!!err);t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200)}
@@ -448,29 +451,33 @@ function getFormatos(prod){
 function filaProducto(p){
   const k=p.id;
   const val=UI.conteo[k];
-  const tieneValor=val!==undefined&&val!==null;
+  const tieneValor=val!==undefined&&val!==null&&parseCant(val)>0;
+  const esSinStock=UI.sinStock.has(k);
   const fmts=getFormatos(p);
   const fmtActual=UI.fmt[k]||fmts[0];
   const isLibre=fmtActual==='__libre__';
   const selVal=isLibre?'__libre__':fmtActual;
   const options=fmts.map(f=>`<option value="${esc(f)}" ${selVal===f?'selected':''}>${esc(f)}</option>`).join('');
-  return `<div class="prow ${tieneValor?'counted':''}" id="row_${k}">
+  let claseFila='';
+  if(esSinStock)claseFila='sinstock';else if(tieneValor)claseFila='counted';
+  return `<div class="prow ${claseFila}" id="row_${k}">
     <div>
       <div class="pname">${esc(p.nombre)}</div>
       <div class="pmeta">${p.id_sap?'SAP '+esc(p.id_sap)+' · ':''}${esc(p.unidad||'ud')}</div>
     </div>
     <div class="fmt-wrap">
-      <select class="fmt-select" id="fs_${k}" onchange="cambFmt('${k}',this.value)">
+      <select class="fmt-select" id="fs_${k}" onchange="cambFmt('${k}',this.value)" ${esSinStock?'disabled':''}>
         ${options}
         <option value="__libre__" ${isLibre?'selected':''}>✏️ Otro…</option>
       </select>
       <input class="fmt-libre ${isLibre?'show':''}" id="fl_${k}" type="text" placeholder="Formato" value="${isLibre?esc(UI.fmtLibre[k]||''):''}" oninput="UI.fmtLibre['${k}']=this.value;guardarCantidad('${k}');renderResumen()">
     </div>
     <div class="qty">
-      <button class="qbtn" onclick="camb('${k}',-1)">−</button>
-      <input class="qval ${tieneValor?'filled':''}" id="q_${k}" type="text" inputmode="decimal" pattern="[0-9.,]*" value="${tieneValor?val:''}" placeholder="0" oninput="this.value=limpiarCant(this.value);setCantidad('${k}',this.value)" onblur="guardarCantidad('${k}')">
-      <button class="qbtn" onclick="camb('${k}',1)">+</button>
+      <button class="qbtn" onclick="camb('${k}',-1)" ${esSinStock?'disabled':''}>−</button>
+      <input class="qval ${tieneValor?'filled':''}" id="q_${k}" type="text" inputmode="decimal" pattern="[0-9.,]*" value="${tieneValor?val:''}" placeholder="0" ${esSinStock?'disabled':''} oninput="this.value=limpiarCant(this.value);setCantidad('${k}',this.value)" onblur="guardarCantidad('${k}')">
+      <button class="qbtn" onclick="camb('${k}',1)" ${esSinStock?'disabled':''}>+</button>
     </div>
+    <button class="btn-sinstock ${esSinStock?'active':''}" onclick="toggleSinStock('${k}')">🚫 Sin stock</button>
   </div>`;
 }
 function cambFmt(k,val){
@@ -484,6 +491,22 @@ function formatoActual(k,p){
   const fmts=getFormatos(p);
   const fmtVal=UI.fmt[k]||fmts[0];
   return fmtVal==='__libre__'?(UI.fmtLibre[k]||'').trim()||fmts[0]:fmtVal;
+}
+
+function toggleSinStock(k){
+  if(UI.sinStock.has(k)){
+    UI.sinStock.delete(k);
+  } else {
+    UI.sinStock.add(k);
+    // sin stock es excluyente con tener cantidad contada
+    if(UI.conteo[k]){
+      UI.conteo[k]=0;
+      guardarCantidad(k);
+    }
+  }
+  const row=$('row_'+k);
+  if(row)row.outerHTML=filaProducto(DB.productos.find(p=>p.id===k));
+  renderResumen();
 }
 
 function setCantidad(k,v){
@@ -892,3 +915,4 @@ initConexion();
 </script>
 </body>
 </html>
+
