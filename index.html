@@ -511,13 +511,17 @@ function toggleSinStock(k){
 
 function setCantidad(k,v){
   UI.conteo[k]=parseCant(v);
+  const esCero=UI.conteo[k]<=0;
+  const el=$('q_'+k);if(el)el.classList.toggle('filled',!esCero);
+  const row=$('row_'+k);if(row)row.classList.toggle('counted',!esCero);
   renderResumen();
 }
 function camb(k,d){
   const actual=parseCant(UI.conteo[k]||0);
   UI.conteo[k]=Math.max(0,Math.round((actual+d)*100)/100);
-  const el=$('q_'+k);if(el){el.value=UI.conteo[k];el.classList.add('filled')}
-  const row=$('row_'+k);if(row)row.classList.add('counted');
+  const esCero=UI.conteo[k]<=0;
+  const el=$('q_'+k);if(el){el.value=esCero?'':UI.conteo[k];el.classList.toggle('filled',!esCero)}
+  const row=$('row_'+k);if(row)row.classList.toggle('counted',!esCero);
   guardarCantidad(k);
   renderResumen();
 }
