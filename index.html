@@ -74,8 +74,10 @@ h2{font-size:17px;font-weight:700;margin:18px 0 10px}h2:first-child{margin-top:0
 .fmt-libre{padding:8px 10px;border-radius:10px;border:1.5px solid var(--ambar);font-size:13px;background:var(--ambar-c);color:var(--txt);width:100px;display:none}
 .fmt-libre.show{display:block}
 .resumen{background:var(--azul-c);border-radius:var(--r);padding:14px;margin:14px 0}
-.rrow{display:flex;justify-content:space-between;font-size:14px;padding:3px 0}
-.rrow b{font-weight:700}
+.rrow{display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:5px 0;gap:8px}
+.rrow span{flex:1;min-width:0}
+.rrow b{font-weight:700;white-space:nowrap}
+.rrow .rdel{background:none;border:none;color:var(--rojo-t);font-size:17px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0}
 .rarea{font-size:12px;font-weight:700;color:var(--azul-o);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 2px}
 .rarea:first-child{margin-top:0}
 .fmt-tag{display:inline-flex;align-items:center;gap:5px;background:var(--azul-c);color:var(--azul-o);border-radius:20px;padding:4px 10px;font-size:13px;font-weight:600;margin:2px}
@@ -532,14 +534,22 @@ function renderResumen(){
   const r=$('resumen');if(!r)return;
   const items=DB.productos
     .filter(p=>UI.conteo[p.id]!==undefined&&UI.conteo[p.id]!==null&&parseCant(UI.conteo[p.id])>0)
-    .map(p=>({nombre:p.nombre,area:p.area,cantidad:UI.conteo[p.id],formato:formatoActual(p.id,p)}));
+    .map(p=>({id:p.id,nombre:p.nombre,area:p.area,cantidad:UI.conteo[p.id],formato:formatoActual(p.id,p)}));
   if(!items.length){r.style.display='none';return}
   r.style.display='block';
   const porArea={};
   items.forEach(i=>{(porArea[i.area]=porArea[i.area]||[]).push(i)});
   r.innerHTML=Object.entries(porArea).map(([a,its])=>
-    `<div class="rarea">${esc(a)}</div>`+its.map(i=>`<div class="rrow"><span>${esc(i.nombre)}</span><b>${i.cantidad} × ${esc(i.formato)}</b></div>`).join('')
+    `<div class="rarea">${esc(a)}</div>`+its.map(i=>`<div class="rrow"><span>${esc(i.nombre)}</span><b>${i.cantidad} × ${esc(i.formato)}</b><button class="rdel" onclick="borrarDelResumen('${i.id}')" title="Quitar">🗑️</button></div>`).join('')
   ).join('');
+}
+function borrarDelResumen(k){
+  UI.conteo[k]=0;
+  const q=$('q_'+k);if(q){q.value='';q.classList.remove('filled')}
+  const row=$('row_'+k);if(row)row.classList.remove('counted');
+  guardarCantidad(k);
+  renderResumen();
+  actualizarProgreso();
 }
 
 function confirmarCierre(){
@@ -882,4 +892,3 @@ initConexion();
 </script>
 </body>
 </html>
-
