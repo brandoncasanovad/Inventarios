@@ -213,6 +213,17 @@ select,input[type=text],input[type=url],input[type=email]{padding:11px 12px;bord
     </div>
   </div>
 
+  <h2>Borrar catálogo</h2>
+  <div class="card card-pad">
+    <p class="muted" style="margin-bottom:12px"><b>Borrar TODO el catálogo</b> elimina los productos de todas las ubicaciones y restaurantes — úsalo para reimportar todo desde cero.</p>
+    <button class="btn btn-rojo btn-sm" onclick="borrarCatalogoCompleto()" style="margin-bottom:18px">🗑️ Borrar TODO el catálogo</button>
+
+    <p class="muted" style="margin-bottom:12px"><b>Borrar por área</b> elimina solo los productos de un área concreta dentro de una ubicación.</p>
+    <div class="cfg-row"><label>Ubicación</label><select id="sel-ubic-borrar" onchange="renderSelAreaBorrar()"></select></div>
+    <div class="cfg-row"><label>Área</label><select id="sel-area-borrar"></select></div>
+    <button class="btn btn-rojo-b btn-sm" onclick="borrarCatalogoArea()">🗑️ Borrar productos de esta área</button>
+  </div>
+
   <h2>Centro / Almacén SAP por ubicación</h2>
   <div class="card">
     <p class="muted card-pad" style="padding-bottom:0">Código de centro SAP que se exportará en cada línea del Excel de esa ubicación.</p>
@@ -725,6 +736,7 @@ function renderSelUbicImport(){
     return `<option value="${u.id}" ${u.id===UI.ubic?'selected':''}>${esc(rest?.nombre||'')} · ${esc(u.nombre)}</option>`;
   }).join('')||'<option value="">Sin ubicaciones — créalas primero</option>';
   renderSelUbicFmt();
+  renderSelUbicBorrar();
 }
 function renderSelUbicFmt(){
   const sel=$('sel-ubic-fmt');if(!sel)return;
@@ -824,7 +836,50 @@ async function importarExcel(ev){
   }catch(e){toast('Error: '+(e.message||e),true)}
 }
 
+async function borrarCatalogoCompleto(){
+  if(!sb)return;
+  if(!confirm('¿Borrar TODO el catálogo de productos, de todas las ubicaciones y restaurantes? Esta acción no se puede deshacer.'))return;
+  if(!confirm('Segunda confirmación — se borrarán TODOS los productos. ¿Continuar?'))return;
+  try{
+    const{error}=await sb.from('inventario_productos').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    if(error)throw error;
+    toast('✅ Catálogo completo borrado');
+    cargarCatalogo();
+  }catch(e){toast('Error: '+(e.message||e),true)}
+}
+
+function renderSelUbicBorrar(){
+  const sel=$('sel-ubic-borrar');if(!sel)return;
+  sel.innerHTML=DB.todasUbicaciones.map(u=>{
+    const rest=DB.restaurantes.find(r=>r.id===u.restaurante_id);
+    return `<option value="${u.id}">${esc(rest?.nombre||'')} · ${esc(u.nombre)}</option>`;
+  }).join('')||'<option value="">Sin ubicaciones</option>';
+  renderSelAreaBorrar();
+}
+function renderSelAreaBorrar(){
+  const sel=$('sel-area-borrar');if(!sel)return;
+  const ubicId=$('sel-ubic-borrar').value;
+  const areas=DB.todasAreas.filter(a=>a.ubicacion_id===ubicId);
+  sel.innerHTML=areas.map(a=>`<option value="${esc(a.nombre)}">${esc(a.nombre)}</option>`).join('')||'<option value="">Sin áreas en esta ubicación</option>';
+}
+async function borrarCatalogoArea(){
+  if(!sb)return;
+  const ubicId=$('sel-ubic-borrar').value;
+  const area=$('sel-area-borrar').value;
+  if(!ubicId||!area){toast('Selecciona ubicación y área',true);return}
+  const rest=DB.restaurantes.find(r=>r.id===DB.todasUbicaciones.find(u=>u.id===ubicId)?.restaurante_id);
+  const ubic=DB.todasUbicaciones.find(u=>u.id===ubicId);
+  if(!confirm(`¿Borrar todos los productos del área "${area}" en ${rest?.nombre||''} · ${ubic?.nombre||''}?`))return;
+  try{
+    const{error}=await sb.from('inventario_productos').delete().eq('ubicacion_id',ubicId).eq('area',area);
+    if(error)throw error;
+    toast('✅ Productos del área borrados');
+    cargarCatalogo();
+  }catch(e){toast('Error: '+(e.message||e),true)}
+}
+
 initConexion();
 </script>
 </body>
 </html>
+
