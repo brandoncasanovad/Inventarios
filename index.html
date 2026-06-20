@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Inventarios PDV</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --azul:#185FA5;--azul-o:#0C447C;--azul-c:#E6F1FB;
+  --verde:#3B6D11;--verde-c:#EAF3DE;--verde-t:#27500A;
+  --rojo:#E24B4A;--rojo-c:#FCEBEB;--rojo-t:#791F1F;
+  --ambar:#EF9F27;--ambar-c:#FAEEDA;--ambar-t:#633806;
+  --naranja:#C56A1F;--naranja-c:#FBEADB;--naranja-t:#6B3300;
+  --fondo:#f4f5f7;--borde:#dfe3e8;--gris:#5f6b76;
+  --txt:#1c2733;--blanco:#fff;--r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--fondo);color:var(--txt);min-height:100vh}
+.topbar{background:var(--blanco);border-bottom:1px solid var(--borde);position:sticky;top:0;z-index:50}
+.topbar-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;padding:0 12px}
+.brand{font-size:16px;font-weight:700;color:var(--naranja);padding:14px 8px;white-space:nowrap}
+.tabs{display:flex;flex:1;justify-content:flex-end}
+.tab{padding:14px 10px;font-size:13px;font-weight:600;color:var(--gris);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;display:flex;align-items:center;gap:5px}
+.tab.active{color:var(--naranja);border-bottom-color:var(--naranja)}
+.dot{background:var(--rojo);color:white;font-size:11px;min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
+.container{max-width:960px;margin:0 auto;padding:16px 12px 80px}
+.screen{display:none}.screen.active{display:block}
+h2{font-size:17px;font-weight:700;margin:18px 0 10px}h2:first-child{margin-top:0}
+.muted{color:var(--gris);font-size:13px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{padding:10px 16px;border-radius:24px;border:1.5px solid var(--borde);background:var(--blanco);font-size:14px;font-weight:600;cursor:pointer;color:var(--gris)}
+.chip.active{background:var(--naranja);border-color:var(--naranja);color:white}
+.chip.ubic{border-color:var(--azul);color:var(--azul-o)}
+.chip.ubic.active{background:var(--azul);border-color:var(--azul);color:white}
+.chip.area.active{background:var(--naranja-c);border-color:var(--naranja);color:var(--naranja-t)}
+.card{background:var(--blanco);border:1px solid var(--borde);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.card-pad{padding:14px}
+.btn{width:100%;padding:14px;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-naranja{background:var(--naranja);color:white}.btn-naranja:disabled{background:#c3ccd4;cursor:not-allowed}
+.btn-azul{background:var(--azul);color:white}
+.btn-rojo{background:var(--rojo);color:white}
+.btn-verde{background:var(--verde);color:white}
+.btn-borde{background:var(--blanco);border:1.5px solid var(--borde);color:var(--txt)}
+.btn-sm{padding:9px 14px;font-size:13px;width:auto}
+.btn-rojo-b{background:var(--blanco);border:1.5px solid var(--rojo);color:var(--rojo-t)}
+
+.search-wrap{position:relative;margin-bottom:10px}
+.search-wrap input{width:100%;padding:10px 12px 10px 38px;border-radius:10px;border:1.5px solid var(--borde);font-size:14px;background:var(--blanco);color:var(--txt)}
+.search-wrap .ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--gris);pointer-events:none}
+
+.progreso-bar{background:linear-gradient(135deg,var(--naranja),#8a4500);border-radius:var(--r);padding:16px;margin-bottom:14px;color:white;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.progreso-info{flex:1}
+.progreso-info h3{font-size:15px;font-weight:700}
+.progreso-info p{font-size:12px;opacity:.9;margin-top:2px}
+.btn-cierre{background:white;color:var(--naranja);border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+.area-group{margin-bottom:6px}
+.area-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--fondo);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--gris)}
+.area-head .ac{font-weight:700;color:var(--naranja)}
+.prow{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--fondo)}
+.prow:last-child{border-bottom:none}
+.prow.counted{background:var(--verde-c)}
+.pname{font-size:14px;flex:1;min-width:0;font-weight:500}
+.pmeta{font-size:11px;color:var(--gris);margin-top:1px}
+.qty{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.qbtn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--borde);background:rgba(255,255,255,0.8);font-size:19px;cursor:pointer;color:inherit;line-height:1}
+.qval{min-width:58px;text-align:center;font-size:16px;font-weight:700;border:none;border-bottom:2px solid var(--borde);background:transparent;padding:2px 4px;color:inherit}
+.qval.filled{border-bottom-color:var(--verde)}
+
+.hist-card{background:var(--blanco);border:1px solid var(--borde);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.hist-head{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer}
+.hist-avatar{width:40px;height:40px;border-radius:50%;background:var(--naranja-c);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.hist-info{flex:1;min-width:0}
+.hist-title{font-size:14px;font-weight:700}
+.hist-meta{font-size:12px;color:var(--gris);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.hist-body{padding:0 14px 14px;display:none}
+.hist-body.open{display:block}
+.chev{color:#aab4bd;font-size:18px}
+.badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px}
+.b-na{background:var(--naranja-c);color:var(--naranja-t)}
+
+table.htable{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+table.htable th{text-align:left;padding:6px 8px;background:var(--fondo);font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--gris)}
+table.htable td{padding:7px 8px;border-bottom:1px solid var(--fondo)}
+table.htable tr:last-child td{border-bottom:none}
+.htable-area td{background:var(--fondo);font-weight:700;font-size:10px;text-transform:uppercase;color:var(--gris);padding:4px 8px}
+
+.cfg-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.cfg-row label{font-size:13px;font-weight:600;color:var(--gris)}
+.cfg-row input,.cfg-row select{width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid var(--borde);font-size:14px;background:var(--blanco);color:var(--txt)}
+.lista-admin{margin-top:4px}
+.lrow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--fondo)}
+.lrow:last-child{border-bottom:none}.lrow .nom{flex:1;font-size:14px}
+.lrow .del{background:none;border:none;color:var(--rojo);font-size:18px;cursor:pointer;padding:6px}
+.lrow-sub{padding-left:28px;background:var(--fondo)}
+.add-row{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--fondo);flex-wrap:wrap}
+.add-row input,.add-row select{flex:1;min-width:80px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--borde);font-size:14px;background:var(--blanco);color:var(--txt)}
+.filtros{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filtros select{flex:1;min-width:140px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--borde);font-size:14px;background:var(--blanco);color:var(--txt)}
+.refresh-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.btn-refresh{background:var(--blanco);border:1.5px solid var(--borde);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;color:var(--gris)}
+.empty{text-align:center;padding:40px 20px;color:var(--gris)}
+.empty .ico{font-size:36px;display:block;margin-bottom:8px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.modal{background:var(--blanco);border-radius:16px;padding:22px;max-width:440px;width:100%;max-height:85vh;overflow-y:auto}
+.modal h3{font-size:17px;margin-bottom:14px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--txt);color:white;padding:13px 22px;border-radius:12px;font-size:14px;font-weight:600;z-index:200;transition:transform .3s;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}.toast.error{background:var(--rojo-t)}
+select,input[type=text],input[type=url],input[type=email]{padding:11px 12px;border-radius:10px;border:1.5px solid var(--borde);font-size:14px;background:var(--blanco);color:var(--txt)}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-inner">
+  <div class="brand">📦 Inventarios PDV</div>
+  <div class="tabs">
+    <button class="tab active" data-t="0" onclick="goTab(0)">📋 Recuento <span class="dot" id="dot-cont" style="background:var(--naranja)">0</span></button>
+    <button class="tab" data-t="1" onclick="goTab(1)">📚 Histórico</button>
+    <button class="tab" data-t="2" onclick="goTab(2)">⚙️</button>
+  </div>
+</div></div>
+
+<div class="container">
+
+<div class="screen active" id="s0">
+  <div class="progreso-bar">
+    <div class="progreso-info">
+      <h3>Inventario en curso</h3>
+      <p id="progreso-txt">0 de 0 productos contados</p>
+    </div>
+    <button class="btn-cierre" onclick="confirmarCierre()">🔒 Cerrar inventario</button>
+  </div>
+
+  <h2>Restaurante</h2>
+  <div class="chips" id="rest-chips"></div>
+  <h2>Ubicación</h2>
+  <div class="chips" id="ubic-chips"></div>
+  <h2>Área</h2>
+  <div class="chips" id="area-chips"></div>
+
+  <div class="search-wrap">
+    <span class="ico">🔍</span>
+    <input type="text" id="buscador" placeholder="Buscar producto en esta ubicación…" oninput="renderProductos()">
+  </div>
+
+  <div class="card" id="prod-card">
+    <div class="empty" id="prod-empty">Cargando…</div>
+    <div id="prod-list"></div>
+  </div>
+</div>
+
+<div class="screen" id="s1">
+  <div class="refresh-bar">
+    <h2 style="margin:0">Histórico de inventarios</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn-refresh" onclick="cargarHistorico(true)">🔄 Actualizar</button>
+      <button class="btn-refresh" style="border-color:var(--rojo);color:var(--rojo-t)" onclick="limpiarHistorico()">🗑️ Limpiar todo</button>
+    </div>
+  </div>
+  <div class="filtros">
+    <select id="f-rest" onchange="renderHistorico()"><option value="">Todos los restaurantes</option></select>
+    <select id="f-ubic" onchange="renderHistorico()"><option value="">Todas las ubicaciones</option></select>
+    <select id="f-fecha" onchange="renderHistorico()"><option value="">Todas las fechas</option></select>
+  </div>
+  <div id="lista-historico"></div>
+</div>
+
+<div class="screen" id="s2">
+  <h2>Conexión a la base de datos</h2>
+  <div class="card card-pad">
+    <p class="muted" style="margin-bottom:12px">Usa el mismo proyecto Supabase de Pedidos PDV / Mermas. Inventarios usa sus propias tablas y catálogo, independientes de esas apps.</p>
+    <div class="cfg-row"><label>URL del proyecto Supabase</label><input type="url" id="cfg-url" placeholder="https://xxxxx.supabase.co"></div>
+    <div class="cfg-row"><label>Clave anon (public)</label><input type="text" id="cfg-key" placeholder="eyJhbGciOi..."></div>
+    <button class="btn btn-naranja" onclick="conectar($('cfg-url').value,$('cfg-key').value)" style="margin-bottom:8px">💾 Guardar y conectar</button>
+    <p class="muted" id="cfg-estado">Sin conectar</p>
+  </div>
+
+  <h2>Restaurantes y ubicaciones</h2>
+  <div class="card">
+    <div class="lista-admin" id="admin-restaurantes"></div>
+    <div class="add-row">
+      <input type="text" id="nuevo-rest" placeholder="Nombre del restaurante (ej: Beercode)">
+      <button class="btn btn-naranja btn-sm" onclick="agregarRestaurante()">+ Añadir restaurante</button>
+    </div>
+  </div>
+
+  <h2>Catálogo de productos</h2>
+  <div class="card card-pad">
+    <p class="muted" style="margin-bottom:12px">Selecciona la ubicación a la que pertenece el Excel antes de importar. Columnas: <b>Producto, Area</b> (opcionales: <b>Unidad, ID_SAP, Codigo</b>).</p>
+    <div class="cfg-row"><label>Ubicación destino</label><select id="sel-ubic-import"></select></div>
+    <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarExcel(event)">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-borde btn-sm" onclick="document.getElementById('excel-input').click()">📥 Importar Excel (añadir)</button>
+      <button class="btn btn-rojo-b btn-sm" onclick="reemplazarCatalogo()">🔄 Importar Excel (reemplazar ubicación)</button>
+    </div>
+  </div>
+
+  <h2>Centro / Almacén SAP por ubicación</h2>
+  <div class="card">
+    <p class="muted card-pad" style="padding-bottom:0">Código de centro SAP que se exportará en cada línea del Excel de esa ubicación.</p>
+    <div class="lista-admin" id="admin-centros"></div>
+  </div>
+</div>
+</div>
+
+<div class="overlay" id="overlay-conexion">
+  <div class="modal">
+    <h3>📦 Inventarios PDV — Configuración</h3>
+    <p class="muted" style="margin-bottom:14px">Conecta con el mismo proyecto Supabase que usas en Pedidos PDV / Mermas.</p>
+    <div class="cfg-row"><label>URL del proyecto</label><input type="url" id="m-url" placeholder="https://xxxxx.supabase.co"></div>
+    <div class="cfg-row"><label>Clave anon (public)</label><input type="text" id="m-key" placeholder="eyJhbGciOi..."></div>
+    <button class="btn btn-naranja" onclick="conectar($('m-url').value,$('m-key').value)">Conectar</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-cierre">
+  <div class="modal">
+    <h3>🔒 Cerrar inventario</h3>
+    <p class="muted" style="margin-bottom:14px">Se guardará el recuento de hoy en el histórico y se generará el Excel para cargar en SAP. Esta acción no se puede deshacer.</p>
+    <p id="cierre-resumen" style="margin-bottom:16px;font-size:14px"></p>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-borde" onclick="document.getElementById('overlay-cierre').classList.remove('show')">Cancelar</button>
+      <button class="btn btn-rojo" onclick="cerrarInventario()">🔒 Confirmar cierre</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let sb=null;
+let DB={restaurantes:[],ubicaciones:[],todasUbicaciones:[],todasAreas:[],areas:[],productos:[],todosProductos:[],historico:[],centros:{}};
+let UI={rest:null,ubic:null,area:null,conteo:{},histAbiertos:new Set(),modoReemplazo:false};
+
+function $(id){return document.getElementById(id)}
+function toast(msg,err){const t=$('toast');t.textContent=msg;t.classList.toggle('error',!!err);t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fechaES(iso){const d=new Date(iso);return d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'})}
+function hoyStr(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function limpiarCant(v){
+  let s=String(v).replace(/[^0-9.,]/g,'');
+  const first=s.search(/[.,]/);
+  if(first!==-1){
+    s=s.slice(0,first+1)+s.slice(first+1).replace(/[.,]/g,'');
+  }
+  return s;
+}
+function parseCant(v){
+  const n=parseFloat(String(v).replace(',','.'));
+  return isNaN(n)||n<0?0:n;
+}
+
+function initConexion(){
+  const url=localStorage.getItem('inv_sb_url'),key=localStorage.getItem('inv_sb_key');
+  if(url&&key){sb=supabase.createClient(url,key);$('cfg-url').value=url;$('cfg-key').value=key;$('cfg-estado').textContent='✅ Conectado a '+url;cargarTodo()}
+  else{$('overlay-conexion').classList.add('show')}
+  const centros=localStorage.getItem('inv_centros');
+  if(centros)try{DB.centros=JSON.parse(centros)}catch(e){DB.centros={}}
+}
+function conectar(url,key){
+  if(!url||!key){toast('Completa URL y clave',true);return}
+  url=url.trim().replace(/\/rest\/v1\/?$/,'').replace(/\/+$/,'');
+  key=key.trim();
+  localStorage.setItem('inv_sb_url',url);localStorage.setItem('inv_sb_key',key);
+  sb=supabase.createClient(url,key);
+  $('overlay-conexion').classList.remove('show');
+  $('cfg-url').value=url;$('cfg-key').value=key;
+  $('cfg-estado').textContent='✅ Conectado a '+url;
+  toast('Conectado');cargarTodo();
+}
+
+function goTab(n){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.t==n));
+  document.querySelectorAll('.screen').forEach((s,i)=>s.classList.toggle('active',i===n));
+  if(n===1)cargarHistorico();
+  if(n===0)renderProductos();
+}
+
+async function cargarTodo(){
+  await cargarCatalogo();
+  await cargarHistorico();
+}
+async function cargarCatalogo(){
+  if(!sb)return;
+  try{
+    const[rests,ubics,areas,prods]=await Promise.all([
+      sb.from('inventario_restaurantes').select('*').eq('activo',true).order('nombre'),
+      sb.from('inventario_ubicaciones').select('*').eq('activo',true).order('nombre'),
+      sb.from('inventario_areas').select('*').order('nombre'),
+      sb.from('inventario_productos').select('*').eq('activo',true).order('nombre'),
+    ]);
+    if(rests.error||ubics.error||areas.error||prods.error)throw(rests.error||ubics.error||areas.error||prods.error);
+    DB.restaurantes=rests.data;DB.todasUbicaciones=ubics.data;DB.todasAreas=areas.data;DB.todosProductos=prods.data;
+    if(!UI.rest&&DB.restaurantes.length)UI.rest=DB.restaurantes[0].id;
+    DB.ubicaciones=DB.todasUbicaciones.filter(u=>u.restaurante_id===UI.rest);
+    if((!UI.ubic||!DB.ubicaciones.some(u=>u.id===UI.ubic))&&DB.ubicaciones.length)UI.ubic=DB.ubicaciones[0].id;
+    if(!DB.ubicaciones.length)UI.ubic=null;
+    refiltrarAreasYProductos();
+    renderAdminRestaurantes();
+    renderAdminCentros();
+    renderSelUbicImport();
+    renderRegistro();
+    await cargarConteoTemp();
+  }catch(e){toast('Error cargando: '+(e.message||e),true)}
+}
+
+function refiltrarAreasYProductos(){
+  DB.areas=DB.todasAreas.filter(a=>a.ubicacion_id===UI.ubic);
+  DB.productos=DB.todosProductos.filter(p=>p.ubicacion_id===UI.ubic);
+  if((!UI.area||!DB.areas.some(a=>a.nombre===UI.area))&&DB.areas.length)UI.area=DB.areas[0].nombre;
+  if(!DB.areas.length)UI.area=null;
+}
+
+async function cargarConteoTemp(){
+  if(!sb||!UI.ubic)return;
+  try{
+    const{data,error}=await sb.from('inventario_conteo_temp')
+      .select('*').eq('ubicacion_id',UI.ubic).eq('fecha',hoyStr());
+    if(error)throw error;
+    UI.conteo={};
+    (data||[]).forEach(r=>{UI.conteo[r.prod_id]=r.cantidad});
+    renderProductos();
+    actualizarProgreso();
+  }catch(e){
+    console.error('Error cargando conteo:',e);
+    toast('Sin conexión, no se actualizó el conteo',true);
+  }
+}
+
+async function seleccionarRest(id){
+  UI.rest=id;UI.ubic=null;UI.area=null;
+  DB.ubicaciones=DB.todasUbicaciones.filter(u=>u.restaurante_id===id);
+  if(DB.ubicaciones.length)UI.ubic=DB.ubicaciones[0].id;
+  refiltrarAreasYProductos();
+  if($('buscador'))$('buscador').value='';
+  UI.conteo={};
+  renderRegistro();
+  await cargarConteoTemp();
+}
+async function seleccionarUbic(id){
+  UI.ubic=id;UI.area=null;
+  refiltrarAreasYProductos();
+  if($('buscador'))$('buscador').value='';
+  UI.conteo={};
+  renderRegistro();
+  await cargarConteoTemp();
+}
+
+function renderRegistro(){
+  $('rest-chips').innerHTML=DB.restaurantes.map(r=>
+    `<button class="chip ${r.id===UI.rest?'active':''}" onclick="seleccionarRest('${r.id}')">${esc(r.nombre)}</button>`
+  ).join('')||'<p class="muted">Añade un restaurante desde ⚙️ Ajustes</p>';
+  $('ubic-chips').innerHTML=DB.ubicaciones.map(u=>
+    `<button class="chip ubic ${u.id===UI.ubic?'active':''}" onclick="seleccionarUbic('${u.id}')">${esc(u.nombre)}</button>`
+  ).join('')||'<p class="muted">Añade ubicaciones (Almacén, Barra…) desde ⚙️ Ajustes</p>';
+  $('area-chips').innerHTML=DB.areas.map(a=>
+    `<button class="chip area ${a.nombre===UI.area?'active':''}" onclick="UI.area='${esc(a.nombre)}';renderProductos()">${esc(a.nombre)}</button>`
+  ).join('')||'<p class="muted">Sin áreas en esta ubicación — se crean solas al importar el Excel</p>';
+  renderProductos();
+}
+
+function renderProductos(){
+  const q=($('buscador')?.value||'').toLowerCase().trim();
+  let lista=DB.productos.filter(p=>p.area===UI.area);
+  if(q)lista=DB.productos.filter(p=>
+    p.nombre.toLowerCase().includes(q)||
+    (p.id_sap||'').toLowerCase().includes(q)||
+    (p.codigo||'').toLowerCase().includes(q)
+  );
+  $('prod-empty').style.display=lista.length?'none':'block';
+  if(!lista.length){$('prod-empty').textContent=DB.productos.length?'Sin resultados':'Sin productos en esta ubicación. Impórtalos desde ⚙️ Ajustes.';$('prod-list').innerHTML='';return}
+
+  const agrupar=!!q;
+  if(agrupar){
+    const porArea={};
+    lista.forEach(p=>{(porArea[p.area]=porArea[p.area]||[]).push(p)});
+    $('prod-list').innerHTML=Object.keys(porArea).sort().map(area=>{
+      const contados=porArea[area].filter(p=>UI.conteo[p.id]!==undefined).length;
+      return `<div class="area-group">
+        <div class="area-head"><span>${esc(area)}</span><span class="ac">${contados}/${porArea[area].length}</span></div>
+        ${porArea[area].map(p=>filaProducto(p)).join('')}
+      </div>`;
+    }).join('');
+  } else {
+    $('prod-list').innerHTML=lista.map(p=>filaProducto(p)).join('');
+  }
+}
+
+function filaProducto(p){
+  const k=p.id;
+  const val=UI.conteo[k];
+  const tieneValor=val!==undefined&&val!==null;
+  return `<div class="prow ${tieneValor?'counted':''}" id="row_${k}">
+    <div>
+      <div class="pname">${esc(p.nombre)}</div>
+      <div class="pmeta">${p.id_sap?'SAP '+esc(p.id_sap)+' · ':''}${esc(p.unidad||'ud')}</div>
+    </div>
+    <div class="qty">
+      <button class="qbtn" onclick="camb('${k}',-1)">−</button>
+      <input class="qval ${tieneValor?'filled':''}" id="q_${k}" type="text" inputmode="decimal" pattern="[0-9.,]*" value="${tieneValor?val:''}" placeholder="0" oninput="this.value=limpiarCant(this.value);setCantidad('${k}',this.value)" onblur="guardarCantidad('${k}')">
+      <button class="qbtn" onclick="camb('${k}',1)">+</button>
+    </div>
+  </div>`;
+}
+
+function setCantidad(k,v){
+  UI.conteo[k]=parseCant(v);
+}
+function camb(k,d){
+  const actual=parseCant(UI.conteo[k]||0);
+  UI.conteo[k]=Math.max(0,Math.round((actual+d)*100)/100);
+  const el=$('q_'+k);if(el){el.value=UI.conteo[k];el.classList.add('filled')}
+  const row=$('row_'+k);if(row)row.classList.add('counted');
+  guardarCantidad(k);
+}
+
+let guardarTimers={};
+function guardarCantidad(k){
+  clearTimeout(guardarTimers[k]);
+  guardarTimers[k]=setTimeout(()=>guardarCantidadAhora(k),500);
+}
+async function guardarCantidadAhora(k){
+  if(!sb||!UI.ubic)return;
+  const p=DB.productos.find(x=>x.id===k);if(!p)return;
+  const cantidad=parseCant(UI.conteo[k]||0);
+  try{
+    const{error}=await sb.from('inventario_conteo_temp').upsert({
+      ubicacion_id:UI.ubic,
+      fecha:hoyStr(),prod_id:k,nombre:p.nombre,area:p.area,
+      id_sap:p.id_sap||null,codigo:p.codigo||null,
+      unidad:p.unidad||'ud',
+      cantidad,actualizado:new Date().toISOString()
+    },{onConflict:'ubicacion_id,fecha,prod_id'});
+    if(error)throw error;
+    actualizarProgreso();
+  }catch(e){toast('Error guardando cantidad: '+(e.message||e),true)}
+}
+
+function actualizarProgreso(){
+  const total=DB.productos.length;
+  const contados=Object.keys(UI.conteo).filter(k=>UI.conteo[k]!==undefined&&UI.conteo[k]!==null&&DB.productos.some(p=>p.id===k)).length;
+  $('progreso-txt').textContent=`${contados} de ${total} productos contados`;
+  $('dot-cont').textContent=contados;
+}
+
+function confirmarCierre(){
+  if(!UI.ubic){toast('Selecciona una ubicación',true);return}
+  const total=DB.productos.length;
+  const contados=Object.keys(UI.conteo).filter(k=>UI.conteo[k]!==undefined&&UI.conteo[k]!==null).length;
+  const ubic=DB.ubicaciones.find(u=>u.id===UI.ubic);
+  const rest=DB.restaurantes.find(r=>r.id===UI.rest);
+  $('cierre-resumen').textContent=`${contados} de ${total} productos contados para ${rest?.nombre||''} — ${ubic?.nombre||''}.`;
+  $('overlay-cierre').classList.add('show');
+}
+
+async function cerrarInventario(){
+  $('overlay-cierre').classList.remove('show');
+  if(!sb||!UI.ubic)return;
+  const fecha=hoyStr();
+  const ubic=DB.ubicaciones.find(u=>u.id===UI.ubic);
+  const rest=DB.restaurantes.find(r=>r.id===UI.rest);
+  try{
+    const{data,error}=await sb.from('inventario_conteo_temp').select('*').eq('ubicacion_id',UI.ubic).eq('fecha',fecha);
+    if(error)throw error;
+    if(!data||!data.length){toast('No hay productos contados para cerrar',true);return}
+    const centro=DB.centros[UI.ubic]||'';
+    const items=data.map(r=>({
+      idSap:r.id_sap||'',codigo:r.codigo||'',nombre:r.nombre,area:r.area,
+      unidad:r.unidad,cantidad:r.cantidad,centro
+    }));
+    const{error:errIns}=await sb.from('inventario_historico').insert({
+      restaurante_id:UI.rest,restaurante_nombre:rest?.nombre||'',
+      ubicacion_id:UI.ubic,ubicacion_nombre:ubic?.nombre||'',
+      fecha,centro_sap:centro,items,total_lineas:items.length
+    });
+    if(errIns)throw errIns;
+    await sb.from('inventario_conteo_temp').delete().eq('ubicacion_id',UI.ubic).eq('fecha',fecha);
+    UI.conteo={};
+    renderProductos();
+    actualizarProgreso();
+    generarExcelSAP(items,rest?.nombre||'',ubic?.nombre||'',fecha,centro);
+    cargarHistorico();
+    toast('✅ Inventario cerrado y Excel generado');
+  }catch(e){toast('Error cerrando inventario: '+(e.message||e),true)}
+}
+
+function generarExcelSAP(items,restNombre,ubicNombre,fecha,centro){
+  const wb=XLSX.utils.book_new();
+  const wsData=[
+    ['Material (ID_SAP)','Código producto','Descripción','Centro/Almacén','Restaurante','Ubicación','Área','Cantidad contada','Unidad de medida','Fecha de recuento'],
+    ...items.map(it=>[it.idSap,it.codigo,it.nombre,it.centro||centro||'',restNombre,ubicNombre,it.area,it.cantidad,it.unidad,fecha])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[{wch:16},{wch:14},{wch:32},{wch:16},{wch:16},{wch:14},{wch:14},{wch:16},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'Inventario');
+  const nombreArchivo=`Inventario_${restNombre.replace(/[^a-z0-9]+/gi,'_')}_${ubicNombre.replace(/[^a-z0-9]+/gi,'_')}_${fecha}.xlsx`;
+  XLSX.writeFile(wb,nombreArchivo);
+}
+
+async function cargarHistorico(manual){
+  if(!sb)return;
+  try{
+    const{data,error}=await sb.from('inventario_historico').select('*').order('creado',{ascending:false}).limit(300);
+    if(error)throw error;
+    DB.historico=data||[];
+    renderFiltrosHistorico();
+    renderHistorico();
+    if(manual)toast('Histórico actualizado');
+  }catch(e){if(manual)toast('Error: '+(e.message||e),true)}
+}
+function renderFiltrosHistorico(){
+  const restUnicos=[...new Map(DB.historico.map(h=>[h.restaurante_id,h.restaurante_nombre])).entries()];
+  const selR=$('f-rest').value;
+  $('f-rest').innerHTML='<option value="">Todos los restaurantes</option>'+restUnicos.map(([id,n])=>`<option value="${id}" ${id===selR?'selected':''}>${esc(n)}</option>`).join('');
+  const ubicUnicas=[...new Map(DB.historico.map(h=>[h.ubicacion_id,h.ubicacion_nombre])).entries()];
+  const selU=$('f-ubic').value;
+  $('f-ubic').innerHTML='<option value="">Todas las ubicaciones</option>'+ubicUnicas.map(([id,n])=>`<option value="${id}" ${id===selU?'selected':''}>${esc(n)}</option>`).join('');
+  const fechasUnicas=[...new Set(DB.historico.map(h=>h.fecha))].sort().reverse();
+  const selF=$('f-fecha').value;
+  $('f-fecha').innerHTML='<option value="">Todas las fechas</option>'+fechasUnicas.map(f=>`<option value="${f}" ${f===selF?'selected':''}>${fechaES(f)}</option>`).join('');
+}
+function renderHistorico(){
+  const fR=$('f-rest').value,fU=$('f-ubic').value,fF=$('f-fecha').value;
+  let lista=DB.historico;
+  if(fR)lista=lista.filter(h=>h.restaurante_id===fR);
+  if(fU)lista=lista.filter(h=>h.ubicacion_id===fU);
+  if(fF)lista=lista.filter(h=>h.fecha===fF);
+  if(!lista.length){$('lista-historico').innerHTML='<div class="empty"><span class="ico">📦</span>Sin inventarios cerrados todavía</div>';return}
+  $('lista-historico').innerHTML=lista.map(h=>{
+    const abierto=UI.histAbiertos.has(h.id);
+    const porArea={};
+    (h.items||[]).forEach(it=>{(porArea[it.area]=porArea[it.area]||[]).push(it)});
+    return `<div class="hist-card">
+      <div class="hist-head" onclick="toggleHist('${h.id}')">
+        <div class="hist-avatar">📦</div>
+        <div class="hist-info">
+          <div class="hist-title">${esc(h.restaurante_nombre)} <span class="muted">· ${esc(h.ubicacion_nombre)} · ${fechaES(h.fecha)}</span></div>
+          <div class="hist-meta"><span class="badge b-na">${h.total_lineas||0} líneas</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn-refresh" style="padding:7px 10px" onclick="event.stopPropagation();descargarExcelHist('${h.id}')">⬇️ Excel</button>
+          <span class="chev">${abierto?'▲':'▼'}</span>
+        </div>
+      </div>
+      <div class="hist-body ${abierto?'open':''}">
+        <table class="htable"><thead><tr><th>SAP</th><th>Código</th><th>Producto</th><th>Cant.</th><th>Unidad</th></tr></thead><tbody>
+        ${Object.keys(porArea).sort().map(area=>`
+          <tr class="htable-area"><td colspan="5">${esc(area)}</td></tr>
+          ${porArea[area].map(it=>`<tr><td>${esc(it.idSap||'')}</td><td>${esc(it.codigo||'')}</td><td>${esc(it.nombre)}</td><td style="text-align:center;font-weight:700">${it.cantidad}</td><td>${esc(it.unidad||'')}</td></tr>`).join('')}
+        `).join('')}
+        </tbody></table>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleHist(id){
+  if(UI.histAbiertos.has(id))UI.histAbiertos.delete(id);else UI.histAbiertos.add(id);
+  renderHistorico();
+}
+function descargarExcelHist(id){
+  const h=DB.historico.find(x=>x.id===id);if(!h)return;
+  generarExcelSAP(h.items||[],h.restaurante_nombre,h.ubicacion_nombre,h.fecha,h.centro_sap||'');
+}
+async function limpiarHistorico(){
+  if(!confirm('¿Borrar TODO el histórico de inventarios? Esta acción no se puede deshacer.'))return;
+  if(!confirm('Segunda confirmación — ¿seguro que quieres continuar?'))return;
+  if(!sb)return;
+  try{
+    const{error}=await sb.from('inventario_historico').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    if(error)throw error;
+    DB.historico=[];renderFiltrosHistorico();renderHistorico();
+    toast('Histórico vaciado');
+  }catch(e){toast('Error: '+(e.message||e),true)}
+}
+
+function renderAdminRestaurantes(){
+  $('admin-restaurantes').innerHTML=DB.restaurantes.map(r=>{
+    const ubicsDeR=DB.todasUbicaciones.filter(u=>u.restaurante_id===r.id);
+    return `<div class="lrow">
+      <span class="nom"><b>${esc(r.nombre)}</b></span>
+      <button class="del" onclick="borrarRestaurante('${r.id}','${esc(r.nombre)}')">🗑️</button>
+    </div>
+    ${ubicsDeR.map(u=>`<div class="lrow lrow-sub">
+      <span class="nom">📍 ${esc(u.nombre)}</span>
+      <button class="del" onclick="borrarUbicacion('${u.id}','${esc(u.nombre)}')">🗑️</button>
+    </div>`).join('')}
+    <div class="add-row lrow-sub">
+      <input type="text" id="nueva-ubic-${r.id}" placeholder="Nueva ubicación (ej: Almacén)">
+      <button class="btn btn-azul btn-sm" onclick="agregarUbicacion('${r.id}')">+ Añadir ubicación</button>
+    </div>`;
+  }).join('')||'<p class="muted card-pad">Añade tu primer restaurante abajo</p>';
+}
+async function agregarRestaurante(){
+  const n=$('nuevo-rest').value.trim();if(!n||!sb)return;
+  const{error}=await sb.from('inventario_restaurantes').insert({nombre:n,activo:true});
+  if(error)return toast('Error: '+error.message,true);
+  $('nuevo-rest').value='';toast('Restaurante añadido');cargarCatalogo();
+}
+async function borrarRestaurante(id,nombre){
+  if(!confirm(`¿Desactivar "${nombre}" y todas sus ubicaciones?`))return;
+  await sb.from('inventario_restaurantes').update({activo:false}).eq('id',id);
+  if(UI.rest===id){UI.rest=null;UI.ubic=null}
+  cargarCatalogo();
+}
+async function agregarUbicacion(restId){
+  const input=$('nueva-ubic-'+restId);
+  const n=input.value.trim();if(!n||!sb)return;
+  const{error}=await sb.from('inventario_ubicaciones').insert({restaurante_id:restId,nombre:n,activo:true});
+  if(error)return toast('Error: '+error.message,true);
+  input.value='';toast('Ubicación añadida');cargarCatalogo();
+}
+async function borrarUbicacion(id,nombre){
+  if(!confirm(`¿Desactivar la ubicación "${nombre}"? Sus productos dejarán de aparecer.`))return;
+  await sb.from('inventario_ubicaciones').update({activo:false}).eq('id',id);
+  if(UI.ubic===id)UI.ubic=null;
+  cargarCatalogo();
+}
+
+function renderAdminCentros(){
+  $('admin-centros').innerHTML=DB.todasUbicaciones.map(u=>{
+    const rest=DB.restaurantes.find(r=>r.id===u.restaurante_id);
+    return `<div class="lrow">
+      <span class="nom">${esc(rest?.nombre||'')} · ${esc(u.nombre)}</span>
+      <input type="text" style="width:140px" placeholder="Código centro" value="${esc(DB.centros[u.id]||'')}" onchange="guardarCentro('${u.id}',this.value)">
+    </div>`;
+  }).join('')||'<p class="muted card-pad">Sin ubicaciones todavía</p>';
+}
+function guardarCentro(ubicId,val){
+  DB.centros[ubicId]=val.trim();
+  localStorage.setItem('inv_centros',JSON.stringify(DB.centros));
+  toast('Centro guardado');
+}
+
+function renderSelUbicImport(){
+  $('sel-ubic-import').innerHTML=DB.todasUbicaciones.map(u=>{
+    const rest=DB.restaurantes.find(r=>r.id===u.restaurante_id);
+    return `<option value="${u.id}" ${u.id===UI.ubic?'selected':''}>${esc(rest?.nombre||'')} · ${esc(u.nombre)}</option>`;
+  }).join('')||'<option value="">Sin ubicaciones — créalas primero</option>';
+}
+function reemplazarCatalogo(){
+  if(!confirm('¿Reemplazar el catálogo de la ubicación seleccionada?'))return;
+  UI.modoReemplazo=true;$('excel-input').click();
+}
+async function importarExcel(ev){
+  const file=ev.target.files[0];if(!file||!sb)return;ev.target.value='';
+  const ubicId=$('sel-ubic-import').value;
+  if(!ubicId){toast('Selecciona primero una ubicación destino',true);return}
+  const reemplazar=UI.modoReemplazo;UI.modoReemplazo=false;
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf);
+    const hoja=wb.Sheets[wb.SheetNames[0]];
+    const filas=XLSX.utils.sheet_to_json(hoja,{defval:''});
+    if(!filas.length)return toast('Excel vacío',true);
+    const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+    const claves=Object.keys(filas[0]);
+    const cProd=claves.find(k=>['producto','nombre','articulo','descripcion','referencia'].includes(norm(k)));
+    const cUni=claves.find(k=>['unidad','ud','medida'].includes(norm(k)));
+    const cArea=claves.find(k=>['area','zona','seccion','departamento','categoria'].includes(norm(k)));
+    const cSap=claves.find(k=>['id_sap','sap','id sap','idsap','codigo sap'].includes(norm(k)));
+    const cCod=claves.find(k=>['codigo','código','cod','code'].includes(norm(k)));
+    if(!cProd)return toast('No encuentro columna Producto',true);
+    if(!cArea)return toast('No encuentro columna Area',true);
+
+    const nuevos=filas.filter(f=>String(f[cProd]).trim()).map(f=>({
+      nombre:String(f[cProd]).trim(),
+      unidad:(cUni&&String(f[cUni]).trim()&&String(f[cUni]).trim()!=='nan')?String(f[cUni]).trim():'ud',
+      area:String(f[cArea]).trim(),
+      id_sap:cSap?String(f[cSap]).trim()||null:null,
+      codigo:cCod?String(f[cCod]).trim()||null:null,
+      ubicacion_id:ubicId
+    }));
+
+    if(reemplazar)await sb.from('inventario_productos').update({activo:false}).eq('activo',true).eq('ubicacion_id',ubicId);
+    for(let i=0;i<nuevos.length;i+=100){const{error}=await sb.from('inventario_productos').insert(nuevos.slice(i,i+100));if(error)throw error}
+
+    const areasUnicas=[...new Set(nuevos.map(n=>n.area))];
+    const areasExistentes=await sb.from('inventario_areas').select('nombre').eq('ubicacion_id',ubicId);
+    const nombresExistentes=(areasExistentes.data||[]).map(a=>a.nombre);
+    const faltan=areasUnicas.filter(a=>!nombresExistentes.includes(a));
+    if(faltan.length)await sb.from('inventario_areas').insert(faltan.map(nombre=>({nombre,ubicacion_id:ubicId})));
+
+    toast(`✅ ${nuevos.length} productos importados`);
+    cargarCatalogo();
+  }catch(e){toast('Error: '+(e.message||e),true)}
+}
+
+initConexion();
+</script>
+</body>
+</html>
