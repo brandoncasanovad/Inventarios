@@ -796,14 +796,19 @@ async function importarExcel(ev){
     if(!cProd)return toast('No encuentro columna Producto',true);
     if(!cArea)return toast('No encuentro columna Area',true);
 
-    const nuevos=filas.filter(f=>String(f[cProd]).trim()).map(f=>({
-      nombre:String(f[cProd]).trim(),
-      unidad:(cUni&&String(f[cUni]).trim()&&String(f[cUni]).trim()!=='nan')?String(f[cUni]).trim():'ud',
-      area:String(f[cArea]).trim(),
-      id_sap:cSap?String(f[cSap]).trim()||null:null,
-      codigo:cCod?String(f[cCod]).trim()||null:null,
-      ubicacion_id:ubicId
-    }));
+    const nuevos=filas.filter(f=>String(f[cProd]).trim()).map(f=>{
+      const uniRaw=(cUni&&String(f[cUni]).trim()&&String(f[cUni]).trim()!=='nan')?String(f[cUni]).trim():'';
+      const formatos=uniRaw?uniRaw.split(',').map(x=>x.trim()).filter(Boolean):null;
+      return{
+        nombre:String(f[cProd]).trim(),
+        unidad:formatos&&formatos.length?formatos[0]:'ud',
+        formatos,
+        area:String(f[cArea]).trim(),
+        id_sap:cSap?String(f[cSap]).trim()||null:null,
+        codigo:cCod?String(f[cCod]).trim()||null:null,
+        ubicacion_id:ubicId
+      };
+    });
 
     if(reemplazar)await sb.from('inventario_productos').update({activo:false}).eq('activo',true).eq('ubicacion_id',ubicId);
     for(let i=0;i<nuevos.length;i+=100){const{error}=await sb.from('inventario_productos').insert(nuevos.slice(i,i+100));if(error)throw error}
