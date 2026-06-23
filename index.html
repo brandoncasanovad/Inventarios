@@ -336,7 +336,7 @@ async function cargarCatalogo(){
       sb.from('inventario_restaurantes').select('*').eq('activo',true).order('nombre'),
       sb.from('inventario_ubicaciones').select('*').eq('activo',true).order('nombre'),
       sb.from('inventario_areas').select('*').order('nombre'),
-      sb.from('inventario_productos').select('*').eq('activo',true).order('nombre'),
+      sb.from('inventario_productos').select('*').eq('activo',true).order('nombre').limit(5000),
     ]);
     if(rests.error||ubics.error||areas.error||prods.error)throw(rests.error||ubics.error||areas.error||prods.error);
     DB.restaurantes=rests.data;DB.todasUbicaciones=ubics.data;DB.todasAreas=areas.data;DB.todosProductos=prods.data;
@@ -944,4 +944,3 @@ initConexion();
 </script>
 </body>
 </html>
-
