@@ -675,6 +675,7 @@ function renderHistorico(){
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="btn-refresh" style="padding:7px 10px" onclick="event.stopPropagation();descargarExcelHist('${h.id}')">⬇️ Excel</button>
+          <button class="btn-refresh" style="padding:7px 10px;background:var(--rojo-c);color:var(--rojo-t);border-color:var(--rojo)" onclick="event.stopPropagation();eliminarHist('${h.id}')">🗑️</button>
           <span class="chev">${abierto?'▲':'▼'}</span>
         </div>
       </div>
@@ -706,6 +707,18 @@ async function limpiarHistorico(){
     if(error)throw error;
     DB.historico=[];renderFiltrosHistorico();renderHistorico();
     toast('Histórico vaciado');
+  }catch(e){toast('Error: '+(e.message||e),true)}
+}
+async function eliminarHist(id){
+  const h=DB.historico.find(x=>x.id===id);if(!h)return;
+  if(!confirm(`¿Eliminar el inventario de "${h.restaurante_nombre} · ${h.ubicacion_nombre}" del ${fechaES(h.fecha)}?\nEsta acción no se puede deshacer.`))return;
+  if(!sb)return;
+  try{
+    const{error}=await sb.from('inventario_historico').delete().eq('id',id);
+    if(error)throw error;
+    DB.historico=DB.historico.filter(x=>x.id!==id);
+    renderFiltrosHistorico();renderHistorico();
+    toast('Inventario eliminado');
   }catch(e){toast('Error: '+(e.message||e),true)}
 }
 
