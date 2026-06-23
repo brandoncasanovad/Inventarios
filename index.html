@@ -329,17 +329,31 @@ async function cargarTodo(){
   await cargarCatalogo();
   await cargarHistorico();
 }
+async function cargarTodosProductos(){
+  const BLOQUE=500;
+  let todos=[];
+  let desde=0;
+  while(true){
+    const{data,error}=await sb.from('inventario_productos').select('*').eq('activo',true).order('nombre').range(desde,desde+BLOQUE-1);
+    if(error)throw error;
+    todos=todos.concat(data||[]);
+    if(!data||data.length<BLOQUE)break;
+    desde+=BLOQUE;
+  }
+  return todos;
+}
+
 async function cargarCatalogo(){
   if(!sb)return;
   try{
-    const[rests,ubics,areas,prods]=await Promise.all([
+    const[rests,ubics,areas]=await Promise.all([
       sb.from('inventario_restaurantes').select('*').eq('activo',true).order('nombre'),
       sb.from('inventario_ubicaciones').select('*').eq('activo',true).order('nombre'),
       sb.from('inventario_areas').select('*').order('nombre'),
-      sb.from('inventario_productos').select('*').eq('activo',true).order('nombre').limit(5000),
     ]);
-    if(rests.error||ubics.error||areas.error||prods.error)throw(rests.error||ubics.error||areas.error||prods.error);
-    DB.restaurantes=rests.data;DB.todasUbicaciones=ubics.data;DB.todasAreas=areas.data;DB.todosProductos=prods.data;
+    if(rests.error||ubics.error||areas.error)throw(rests.error||ubics.error||areas.error);
+    const todosProductos=await cargarTodosProductos();
+    DB.restaurantes=rests.data;DB.todasUbicaciones=ubics.data;DB.todasAreas=areas.data;DB.todosProductos=todosProductos;
     if(!UI.rest&&DB.restaurantes.length)UI.rest=DB.restaurantes[0].id;
     DB.ubicaciones=DB.todasUbicaciones.filter(u=>u.restaurante_id===UI.rest);
     if((!UI.ubic||!DB.ubicaciones.some(u=>u.id===UI.ubic))&&DB.ubicaciones.length)UI.ubic=DB.ubicaciones[0].id;
