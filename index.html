@@ -410,27 +410,39 @@ function renderRegistro(){
   $('ubic-chips').innerHTML=DB.ubicaciones.map(u=>
     `<button class="chip ubic ${u.id===UI.ubic?'active':''}" onclick="seleccionarUbic('${u.id}')">${esc(u.nombre)}</button>`
   ).join('')||'<p class="muted">Añade ubicaciones (Almacén, Barra…) desde ⚙️ Ajustes</p>';
-  $('area-chips').innerHTML=DB.areas.map(a=>
-    `<button class="chip area ${a.nombre===UI.area?'active':''}" onclick="UI.area='${esc(a.nombre)}';renderProductos()">${esc(a.nombre)}</button>`
-  ).join('')||'<p class="muted">Sin áreas en esta ubicación — se crean solas al importar el Excel</p>';
+  const areaRegistradas=new Set(DB.areas.map(a=>a.nombre.toLowerCase().trim()));
+  const tieneHuerfanos=DB.productos.some(p=>!p.area||!areaRegistradas.has((p.area||'').toLowerCase().trim()));
+  const chipsAreas=DB.areas.map(a=>`<button class="chip area ${a.nombre===UI.area?'active':''}" onclick="UI.area='${esc(a.nombre)}';renderProductos()">${esc(a.nombre)}</button>`).join('');
+  const chipHuerfano=tieneHuerfanos?`<button class="chip area ${'__sin_area__'===UI.area?'active':''}" onclick="UI.area='__sin_area__';renderProductos()" style="border-color:var(--rojo);color:var(--rojo-t)">⚠️ Sin área</button>`:'';
+  $('area-chips').innerHTML=(chipsAreas+chipHuerfano)||'<p class="muted">Sin áreas en esta ubicación — se crean solas al importar el Excel</p>';
   renderProductos();
 }
 
 function renderProductos(){
   const q=($('buscador')?.value||'').toLowerCase().trim();
-  let lista=DB.productos.filter(p=>p.area===UI.area);
-  if(q)lista=DB.productos.filter(p=>
-    p.nombre.toLowerCase().includes(q)||
-    (p.id_sap||'').toLowerCase().includes(q)||
-    (p.codigo||'').toLowerCase().includes(q)
-  );
+  // Con búsqueda: mostrar todos los productos de la ubicación que coincidan
+  // Sin búsqueda: mostrar los del área seleccionada (comparación sin distinguir mayúsculas/espacios)
+  const normArea=s=>String(s||'').toLowerCase().trim();
+  const areaRegistradas=new Set(DB.areas.map(a=>a.nombre.toLowerCase().trim()));
+  let lista;
+  if(q){
+    lista=DB.productos.filter(p=>
+      p.nombre.toLowerCase().includes(q)||
+      (p.id_sap||'').toLowerCase().includes(q)||
+      (p.codigo||'').toLowerCase().includes(q)
+    );
+  } else if(UI.area==='__sin_area__'){
+    lista=DB.productos.filter(p=>!p.area||!areaRegistradas.has(normArea(p.area)));
+  } else {
+    lista=DB.productos.filter(p=>normArea(p.area)===normArea(UI.area));
+  }
   $('prod-empty').style.display=lista.length?'none':'block';
-  if(!lista.length){$('prod-empty').textContent=DB.productos.length?'Sin resultados':'Sin productos en esta ubicación. Impórtalos desde ⚙️ Ajustes.';$('prod-list').innerHTML='';return}
+  if(!lista.length){$('prod-empty').textContent=DB.productos.length?'Sin resultados en esta área':'Sin productos en esta ubicación. Impórtalos desde ⚙️ Ajustes.';$('prod-list').innerHTML='';return}
 
   const agrupar=!!q;
   if(agrupar){
     const porArea={};
-    lista.forEach(p=>{(porArea[p.area]=porArea[p.area]||[]).push(p)});
+    lista.forEach(p=>{const k=p.area||'Sin área';(porArea[k]=porArea[k]||[]).push(p)});
     $('prod-list').innerHTML=Object.keys(porArea).sort().map(area=>{
       const contados=porArea[area].filter(p=>UI.conteo[p.id]!==undefined).length;
       return `<div class="area-group">
